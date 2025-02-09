@@ -78,10 +78,8 @@ After deployment, interact with the contract using:
 
 ## Security
 
-- Contract has been audited by [Audit Firm Name] (optional)
-- All mathematical operations use SafeMath
+- Contract has not been audited
 - Thoroughly tested against edge cases
-- Emergency pause functionality for critical situations
 
 ## Contributing
 
