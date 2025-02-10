@@ -220,8 +220,9 @@ contract Liteswap is ReentrancyGuard {
             // Calculate output amount using constant product formula (x * y = k)
             // Apply 0.3% fee by using 997 instead of 1000
             // dy = (y * dx * 997) / (x * 1000 + dx * 997)
-            amountOut = (reserveOut * amountIn * 997) / (reserveIn * 1000 + amountIn * 997);
+            amountOut = (reserveOut * ((amountIn * 997) / 1000)) / (reserveIn + ((amountIn * 997) / 1000));
             
+            if (amountOut == 0) revert InvalidAmount();
             if (amountOut < minAmountOut) revert InvalidAmount();
             if (amountOut >= reserveOut) revert InsufficientLiquidity();
             
