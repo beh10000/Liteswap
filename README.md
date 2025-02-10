@@ -89,16 +89,16 @@ After deployment, interact with the contract using:
 
 ### Public Functions
 
-| Function | Inputs | Outputs | Description |
-|----------|---------|---------|-------------|
-| initializePair | address token0, address token1, uint256 amount0, uint256 amount1 | uint256 pairId | Creates a new trading pair with initial liquidity. Returns pair ID. |
-| addLiquidity | uint256 pairId, uint256 amountA | (uint256 amountB, uint256 shares) | Adds liquidity to existing pair. Returns required token B amount and shares minted. |
-| removeLiquidity | uint256 pairId, uint256 sharesToBurn | (uint256 amountA, uint256 amountB) | Removes liquidity by burning shares. Returns token amounts received. |
-| swap | uint256 pairId, address tokenIn, uint256 amountIn, uint256 minAmountOut | uint256 amountOut | Swaps tokens with 0.3% fee. Returns actual output amount. |
-| tokenPairId | address token0, address token1 | uint256 | Gets unique ID for a token pair (order independent). |
-| getReserves | uint256 pairId | (uint256 reserveA, uint256 reserveB) | Gets current reserves for a pair. |
-| getLiquidityPosition | uint256 pairId, address provider | (bool hasPosition, uint256 shares) | Gets liquidity position details for an address. |
-| getPair | uint256 pairId | (address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint256 totalShares, bool initialized) | Gets full pair details. |
+| Function | Inputs | Outputs | Description | State Changing |
+|----------|---------|---------|-------------|----------------|
+| initializePair | address token0, address token1, uint256 amount0, uint256 amount1 | uint256 pairId | Creates a new trading pair with initial liquidity. Returns pair ID. | Yes |
+| addLiquidity | uint256 pairId, uint256 amountA | (uint256 amountB, uint256 shares) | Adds liquidity to existing pair. Returns required token B amount and shares minted. | Yes |
+| removeLiquidity | uint256 pairId, uint256 sharesToBurn | (uint256 amountA, uint256 amountB) | Removes liquidity by burning shares. Returns token amounts received. | Yes |
+| swap | uint256 pairId, address tokenIn, uint256 amountIn, uint256 minAmountOut | uint256 amountOut | Swaps tokens with 0.3% fee. Returns actual output amount. | Yes |
+| tokenPairId | address token0, address token1 | uint256 | Gets unique ID for a token pair (order independent). | No |
+| getReserves | uint256 pairId | (uint256 reserveA, uint256 reserveB) | Gets current reserves for a pair. | No |
+| getLiquidityPosition | uint256 pairId, address provider | (bool hasPosition, uint256 shares) | Gets liquidity position details for an address. | No |
+| getPair | uint256 pairId | (address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint256 totalShares, bool initialized) | Gets full pair details. | No |
 
 ### Events
 
