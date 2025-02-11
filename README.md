@@ -23,7 +23,7 @@ The core contract `Liteswap.sol` implements:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/lite
+git clone https://github.com/beh10000/Liteswap.git
 
 ```
 
@@ -31,14 +31,6 @@ git clone https://github.com/yourusername/lite
 
 ```bash
 npm install
-```
-
-3. Create a `.env` file with your configuration:
-
-```bash
-PRIVATE_KEY=your_private_key
-INFURA_PROJECT_ID=your_infura_project_id
-ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
 
 ## Deployment
@@ -54,8 +46,14 @@ npx hardhat compile
 ```bash
 npx hardhat test
 ```
+3. Create a `.env` file with your configuration:
 
-3. Deploy to network:
+```bash
+SEPOLIA_PRIVATE_KEY=your_private_key
+ETHERSCAN_API_KEY=your_etherscan_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
+```
+4. Deploy to network:
 
 ```bash
 npx hardhat run scripts/deploy.js --network <network_name>
