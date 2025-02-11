@@ -11,6 +11,33 @@ contract TestERC20 is ERC20 {
     }
 } 
 
+contract TestERC20Factory {
+    TestERC20 public immutable GOLD;
+    TestERC20 public immutable SILVER; 
+    TestERC20 public immutable BRONZE;
+    TestERC20 public immutable COPPER;
+    TestERC20 public immutable IRON;
+
+    uint256 private constant FAUCET_AMOUNT = 10_000_000 * 10**18; // 10M tokens with 18 decimals
+
+    constructor() {
+        GOLD = new TestERC20("Digital Gold", "GOLD");
+        SILVER = new TestERC20("Digital Silver", "SILV"); 
+        BRONZE = new TestERC20("Digital Bronze", "BRNZ");
+        COPPER = new TestERC20("Digital Copper", "COPR");
+        IRON = new TestERC20("Digital Iron", "IRON");
+    }
+
+    function faucet() external {
+        GOLD.mint(msg.sender, FAUCET_AMOUNT);
+        SILVER.mint(msg.sender, FAUCET_AMOUNT);
+        BRONZE.mint(msg.sender, FAUCET_AMOUNT);
+        COPPER.mint(msg.sender, FAUCET_AMOUNT);
+        IRON.mint(msg.sender, FAUCET_AMOUNT);
+    }
+}
+
+
 contract TestFeeOnTransferERC20 is ERC20 {
     uint256 private constant FEE_BPS = 1000; // 10% fee in basis points
 
