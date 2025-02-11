@@ -1372,7 +1372,30 @@ describe("Liteswap Testing", function () {
         limitOrderAmount,
         badDesiredOutput
       )).to.be.revertedWithCustomError(liteswap, "BadRatio");
+      // Try with bad ratio in the other direction (tokenB as offer token)
+      const limitOrderAmountB = hre.ethers.parseEther("101");
+      // Calculate what you'd get from a direct swap of tokenB for tokenA
+      const poolOutputB = (limitOrderAmountB * 997n * initialLiquidity) / 
+        ((initialLiquidity * 1000n) + (limitOrderAmountB * 997n));
+      // Ask for more than what the pool would give (worse price)
+      const badDesiredOutputB = poolOutputB - hre.ethers.parseEther("2");
 
+      console.log("\nStep 7: Attempting order with bad price ratio (reverse direction)");
+      console.log(" -Offer amount (tokenB):", limitOrderAmountB.toString());
+      console.log(" -Pool would give:", Number(poolOutputB));
+      console.log(" -Pool Reserve ratio: ", Number(poolOutputB) / Number(limitOrderAmountB));
+      console.log(" -Limit order would give:", badDesiredOutputB.toString());
+      console.log(" -Limit Order ratio:", Number(badDesiredOutputB) / Number(limitOrderAmountB));
+      console.log(" Confirmed: order placement reverts if better price is available swapping direct (reverse direction)");
+
+      await tokenB.approve(await liteswap.getAddress(), limitOrderAmountB);
+
+      await expect(liteswap.placeLimitOrder(
+        pairId,
+        await tokenB.getAddress(),
+        limitOrderAmountB,
+        badDesiredOutputB
+      )).to.be.revertedWithCustomError(liteswap, "BadRatio");
       console.log("\nTest passed: Limit orders can only be placed in valid pairs with valid parameters");
     });
     it("Should allow placing and cancelling limit orders with correct balance changes and prevent filling cancelled order.", async function() {
@@ -1994,6 +2017,7 @@ describe("Liteswap Testing", function () {
 
       console.log("\nTest passed: All limit order events emit correctly with expected arguments");
     });
+
 
   });
     
