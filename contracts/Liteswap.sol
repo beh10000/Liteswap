@@ -21,9 +21,21 @@ contract Liteswap is ReentrancyGuard {
         uint256 shares;       // User's share of the pool
         bool hasPosition;     // Whether the position exists
     }
+    struct LimitOrder {
+        address maker;
+        address offerToken;
+        address desiredToken;
+        uint256 offerAmount;
+        uint256 desiredAmount;
+        bool active;
+    }
+
+    
     mapping(uint256 pairId => Pair) public pairs;
     mapping(address tokenA => mapping(address tokenB => uint256)) public tokenPairId;
     mapping(uint256 pairId=> mapping(address liquidityProvider => LiquidityPosition)) public liquidityProviderPositions;
+    mapping(uint256 pairId => mapping(uint256 orderId => LimitOrder)) public limitOrders;
+    mapping(uint256 pairId => uint256) private _orderIdCounter;
     uint256 public _pairIdCount; // Counter for generating unique pair IDs
     uint256 private constant MINIMUM_SHARES = 1000; // prevent division by zero on first liquidity provision
     
@@ -59,6 +71,28 @@ contract Liteswap is ReentrancyGuard {
         uint256 amountIn,
         uint256 amountOut
     );
+    event LimitOrderPlaced(
+        uint256 indexed pairId,
+        uint256 indexed orderId,
+        address indexed maker,
+        address offerToken,
+        address desiredToken,
+        uint256 offerAmount,
+        uint256 desiredAmount
+    );
+
+    event LimitOrderFilled(
+        uint256 indexed pairId,
+        uint256 indexed orderId,
+        address indexed filler,
+        uint256 amountFilled
+    );
+
+    event LimitOrderCancelled(
+        uint256 indexed pairId,
+        uint256 indexed orderId
+    );
+
     
     // Custom errors
     error PairAlreadyExists();
@@ -70,9 +104,15 @@ contract Liteswap is ReentrancyGuard {
     error NoPosition();
     error InvalidProportions();
     error InsufficientShares();
-    
+    error OrderDoesNotExist();
+    error OrderNotActive();
+    error NotOrderMaker();
+    error InvalidFillAmount();
+    error BadRatio();
+
     constructor() {
         _pairIdCount = 1;
+       
     }
     
     /**
@@ -103,26 +143,37 @@ contract Liteswap is ReentrancyGuard {
             pairId = _pairIdCount++;
             tokenPairId[token0][token1] = pairId;
 
+            // Get initial balances
+            uint256 balance0Before = IERC20(token0).balanceOf(address(this));
+            uint256 balance1Before = IERC20(token1).balanceOf(address(this));
+
+            // Transfer tokens
             if (!_transferTokens(token0, msg.sender, address(this), amount0)) revert TransferFailed();
             if (!_transferTokens(token1, msg.sender, address(this), amount1)) revert TransferFailed();
 
-            // Calculate initial shares as geometric mean 
-            uint256 initialShares = _sqrt(amount0 * amount1);
+            // Calculate actual amounts received after potential transfer fees
+            uint256 amount0Received = IERC20(token0).balanceOf(address(this)) - balance0Before;
+            uint256 amount1Received = IERC20(token1).balanceOf(address(this)) - balance1Before;
+
+            if (amount0Received == 0 || amount1Received == 0) revert InvalidAmount();
+
+            // Calculate initial shares as geometric mean using actual received amounts
+            uint256 initialShares = _sqrt(amount0Received * amount1Received);
             if (initialShares < MINIMUM_SHARES) revert InsufficientLiquidity();
             _mintShares(pairId, msg.sender, initialShares);
 
             pairs[pairId] = Pair({
                 tokenA: token0,
                 tokenB: token1,
-                reserveA: amount0,
-                reserveB: amount1,
+                reserveA: amount0Received,
+                reserveB: amount1Received,
                 totalShares: initialShares,
                 initialized: true
             });
 
             emit PairInitialized(pairId, token0, token1);
-            emit LiquidityAdded(pairId, msg.sender, amount0, amount1, initialShares);
-            emit ReservesUpdated(pairId, amount0, amount1);
+            emit LiquidityAdded(pairId, msg.sender, amount0Received, amount1Received, initialShares);
+            emit ReservesUpdated(pairId, amount0Received, amount1Received);
             return pairId;
     }
 
@@ -147,19 +198,29 @@ contract Liteswap is ReentrancyGuard {
             // Calculate required tokenB amount based on current ratio
             amountB = (amountA * pair.reserveB) / pair.reserveA;
             if (amountB == 0) revert InvalidAmount();
-            
-            // Calculate shares based on proportion
-            shares = (amountA * pair.totalShares) / pair.reserveA;
-            if (shares == 0) revert InsufficientLiquidity();
+
+            // Get balances before transfer
+            uint256 balanceABefore = IERC20(pair.tokenA).balanceOf(address(this));
+            uint256 balanceBBefore = IERC20(pair.tokenB).balanceOf(address(this));
 
             if (!_transferTokens(pair.tokenA, msg.sender, address(this), amountA)) revert TransferFailed();
             if (!_transferTokens(pair.tokenB, msg.sender, address(this), amountB)) revert TransferFailed();
 
-            _mintShares(pairId, msg.sender, shares);
-            _updateReserves(pairId, pair.reserveA + amountA, pair.reserveB + amountB);
+            // Calculate actual amounts received after potential transfer fees
+            uint256 amountAReceived = IERC20(pair.tokenA).balanceOf(address(this)) - balanceABefore;
+            uint256 amountBReceived = IERC20(pair.tokenB).balanceOf(address(this)) - balanceBBefore;
 
-            emit LiquidityAdded(pairId, msg.sender, amountA, amountB, shares);
-            return (amountB, shares);
+            if (amountAReceived == 0 || amountBReceived == 0) revert InvalidAmount();
+            
+            // Calculate shares based on proportion using actual received amounts
+            shares = (amountAReceived * pair.totalShares) / pair.reserveA;
+            if (shares == 0) revert InsufficientLiquidity();
+
+            _mintShares(pairId, msg.sender, shares);
+            _updateReserves(pairId, pair.reserveA + amountAReceived, pair.reserveB + amountBReceived);
+
+            emit LiquidityAdded(pairId, msg.sender, amountAReceived, amountBReceived, shares);
+            return (amountBReceived, shares);
     }
 
     /**
@@ -217,33 +278,174 @@ contract Liteswap is ReentrancyGuard {
             uint256 reserveIn = isTokenA ? pair.reserveA : pair.reserveB;
             uint256 reserveOut = isTokenA ? pair.reserveB : pair.reserveA;
             
+            // Get balance before transfer
+            uint256 balanceBefore = IERC20(tokenIn).balanceOf(address(this));
+            
+            // Transfer input tokens from user to contract
+            if (!_transferTokens(tokenIn, msg.sender, address(this), amountIn)) revert TransferFailed();
+            
+            // Calculate actual amount received after potential transfer fees
+            uint256 actualAmountIn = IERC20(tokenIn).balanceOf(address(this)) - balanceBefore;
+            if (actualAmountIn == 0) revert InvalidAmount();
+            
             // Calculate output amount using constant product formula (x * y = k)
             // Apply 0.3% fee by using 997 instead of 1000
             // dy = (y * dx * 997) / (x * 1000 + dx * 997)
-            amountOut = (reserveOut * ((amountIn * 997) / 1000)) / (reserveIn + ((amountIn * 997) / 1000));
+            amountOut = (reserveOut * ((actualAmountIn * 997) / 1000)) / (reserveIn + ((actualAmountIn * 997) / 1000));
             
             if (amountOut == 0) revert InvalidAmount();
             if (amountOut < minAmountOut) revert InvalidAmount();
             if (amountOut >= reserveOut) revert InsufficientLiquidity();
             
-            // Transfer input tokens from user to contract
-            if (!_transferTokens(tokenIn, msg.sender, address(this), amountIn)) revert TransferFailed();
-            
             // Transfer output tokens to user
             address tokenOut = isTokenA ? pair.tokenB : pair.tokenA;
             IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
             
-            // Update reserves - fee is absorbed into reserves since we're transferring full amountIn
-            uint256 newReserveA = isTokenA ? pair.reserveA + amountIn : pair.reserveA - amountOut;
-            uint256 newReserveB = isTokenA ? pair.reserveB - amountOut : pair.reserveB + amountIn;
+            // Update reserves using actual amount received
+            uint256 newReserveA = isTokenA ? pair.reserveA + actualAmountIn : pair.reserveA - amountOut;
+            uint256 newReserveB = isTokenA ? pair.reserveB - amountOut : pair.reserveB + actualAmountIn;
                 
             _updateReserves(pairId, newReserveA, newReserveB);
             
-            emit Swap(pairId, msg.sender, tokenIn, tokenOut, amountIn, amountOut);
+            emit Swap(pairId, msg.sender, tokenIn, tokenOut, actualAmountIn, amountOut);
             
             return amountOut;
     }
+    
+    
 
+    /**
+     * @notice Places a limit order to swap tokens at a specific rate
+     * @param pairId The pair ID to place the order for
+     * @param offerToken The token address being offered
+     * @param offerAmount The amount of tokens being offered
+     * @param desiredAmount The amount of tokens desired in return
+     * @return orderId The ID of the placed limit order
+     */
+    function placeLimitOrder(uint256 pairId, address offerToken, uint256 offerAmount, uint256 desiredAmount) 
+        external nonReentrant 
+        returns (uint256 orderId) {
+            Pair storage pair = pairs[pairId];
+            if (!pair.initialized) revert PairDoesNotExist();
+            if (offerToken != pair.tokenA && offerToken != pair.tokenB) revert InvalidTokenAddress();
+            if (offerAmount == 0 || desiredAmount == 0) revert InvalidAmount();
+
+            // Get the desired token (the other token in the pair)
+            address desiredToken = offerToken == pair.tokenA ? pair.tokenB : pair.tokenA;
+
+            // Get initial balance before transfer
+            uint256 initialBalance = IERC20(offerToken).balanceOf(address(this));
+
+            // Transfer offered tokens to contract
+            if (!_transferTokens(offerToken, msg.sender, address(this), offerAmount)) revert TransferFailed();
+
+            // Calculate actual received amount after transfer
+            uint256 actualOfferAmount = IERC20(offerToken).balanceOf(address(this)) - initialBalance;
+            if (actualOfferAmount == 0) revert InvalidAmount();
+            // Check if price ratio is worse than current reserves
+            bool isOfferTokenA = offerToken == pair.tokenA;
+            uint256 reserveOffer = isOfferTokenA ? pair.reserveA : pair.reserveB;
+            uint256 reserveDesired = isOfferTokenA ? pair.reserveB : pair.reserveA;
+
+            // Calculate price ratios using fixed point math (multiply by 1e18 for precision)
+            uint256 orderRatio = (desiredAmount * 1e18) / actualOfferAmount;
+            uint256 reserveRatio = (reserveDesired * 1e18) / reserveOffer;
+
+            // For offering token A: if order ratio < reserve ratio, it's a worse deal
+            // For offering token B: if order ratio > reserve ratio, it's a worse deal
+            if (isOfferTokenA ? orderRatio < reserveRatio : orderRatio > reserveRatio) {
+                revert BadRatio();
+            }   
+
+            // Create order
+            orderId = _orderIdCounter[pairId]++;
+            LimitOrder storage order = limitOrders[pairId][orderId];
+            order.maker = msg.sender;
+            order.offerToken = offerToken;
+            order.desiredToken = desiredToken;
+            order.offerAmount = actualOfferAmount;
+            order.desiredAmount = desiredAmount;
+            order.active = true;
+
+            emit LimitOrderPlaced(
+                pairId,
+                orderId,
+                msg.sender,
+                offerToken,
+                desiredToken,
+                actualOfferAmount,
+                desiredAmount
+            );
+
+            return orderId;
+    }
+
+    /**
+     * @notice Fills an existing limit order
+     * @param pairId The pair ID of the order
+     * @param orderId The ID of the order to fill
+     * @param amountDesiredToFill The amount of the order to fill
+     * @return filled The amount that was filled
+     */
+    function fillLimitOrder(uint256 pairId, uint256 orderId, uint256 amountDesiredToFill) 
+        external nonReentrant 
+        returns (uint256 filled) {
+            LimitOrder storage order = limitOrders[pairId][orderId];
+            if (!order.active) revert OrderNotActive();
+            // First get initial balance of desired token
+            uint256 initialBalance = IERC20(order.desiredToken).balanceOf(address(this));
+            
+            // Transfer desired tokens from filler to contract
+            if (!_transferTokens(order.desiredToken, msg.sender, address(this), amountDesiredToFill)) revert TransferFailed();
+            
+            // Calculate actual received amount (handles fee-on-transfer tokens)
+            uint256 actualReceived = IERC20(order.desiredToken).balanceOf(address(this)) - initialBalance;
+            if (actualReceived == 0) revert InvalidFillAmount();
+            if (actualReceived == 0 || actualReceived > order.desiredAmount) revert InvalidFillAmount();
+
+            
+
+            // Calculate proportional offer amount based on actual received amount
+            uint256 offerAmount = (actualReceived * order.offerAmount) / order.desiredAmount;
+            if (offerAmount == 0) revert InvalidFillAmount();
+            
+            // Transfer actual received amount to maker
+            IERC20(order.desiredToken).safeTransfer(order.maker, actualReceived);
+            
+            // Transfer offered tokens to filler
+            IERC20(order.offerToken).safeTransfer(msg.sender, offerAmount);
+
+            // Update order
+            order.offerAmount -= offerAmount;
+            order.desiredAmount -= actualReceived;
+            if (order.desiredAmount == 0) {
+                order.active = false;
+            }
+
+            emit LimitOrderFilled(pairId, orderId, msg.sender, offerAmount);
+
+            return offerAmount;
+    }
+
+    /**
+     * @notice Cancels an existing limit order
+     * @param pairId The pair ID of the order
+     * @param orderId The ID of the order to cancel
+     */
+    function cancelLimitOrder(uint256 pairId, uint256 orderId) external nonReentrant {
+        LimitOrder storage order = limitOrders[pairId][orderId];
+        if (!order.active) revert OrderNotActive();
+        if (order.maker != msg.sender) revert NotOrderMaker();
+
+        // Return remaining tokens to maker
+        IERC20(order.offerToken).safeTransfer(msg.sender, order.offerAmount);
+        
+        order.active = false;
+        order.offerAmount = 0;
+        order.desiredAmount = 0;
+
+        emit LimitOrderCancelled(pairId, orderId);
+    }
     /**
      * @dev Safe transfer function that works with any ERC20 token
      * Core utility function used by multiple main functions
