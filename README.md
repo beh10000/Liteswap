@@ -49,22 +49,32 @@ npx hardhat test
 3. Create a `.env` file with your configuration:
 
 ```bash
-SEPOLIA_PRIVATE_KEY=your_private_key
+SEPOLIA_PRIVATE_KEY=your_testnet_private_key
 ETHERSCAN_API_KEY=your_etherscan_api_key
 ALCHEMY_API_KEY=your_alchemy_api_key
 ```
+The address related to your Sepolia private key must have Sepolia testnet ETH for gas.
+then
+
 4. Deploy to network:
+If deploying on hardhat localhost
+```bash
+npx hardhat node --network hardhat
+```
+then
+```bash
+npx hardhat ignition deploy ignition/modules/Liteswap.ts --network localhost
+```
+OR
+If deploying on Sepolia
 
 ```bash
-npx hardhat run scripts/deploy.js --network <network_name>
+npx hardhat ignition deploy ignition/modules/Liteswap.ts --network sepolia
 ```
-
 
 Supported networks:
 - localhost
 - sepolia
-- goerli 
-- mainnet
 
 ## Usage
 
