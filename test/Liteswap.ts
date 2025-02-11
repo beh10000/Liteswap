@@ -1354,14 +1354,15 @@ describe("Liteswap Testing", function () {
       const poolOutput = (limitOrderAmount * 997n * initialLiquidity) / 
         ((initialLiquidity * 1000n) + (limitOrderAmount * 997n));
       // Ask for more than what the pool would give (worse price)
-      const badDesiredOutput = poolOutput + hre.ethers.parseEther("1");
+      const badDesiredOutput = poolOutput - hre.ethers.parseEther("1");
 
       console.log("\nStep 6: Attempting order with bad price ratio");
       console.log(" -Offer amount:", limitOrderAmount.toString());
-      console.log(" -Pool would give:", poolOutput.toString());
-      console.log(" -Desired output:", badDesiredOutput.toString());
-      console.log(" -Pool ratio: ~0.997 output per input (accounting for fee)");
-      console.log(" -Order ratio:", Number(badDesiredOutput) / Number(limitOrderAmount));
+      console.log(" -Pool would give:", Number(poolOutput));
+      console.log(" -Pool Reserve ratio: ",Number(poolOutput)/ Number(limitOrderAmount));
+      console.log(" -Limit order would give:", badDesiredOutput.toString());
+      console.log(" - Limit Order ratio:", Number(badDesiredOutput) / Number(limitOrderAmount));
+      console.log(" Confirmed: order placement reverts if better price is available swapping direct.")
 
       await tokenA.approve(await liteswap.getAddress(), limitOrderAmount);
 
@@ -1411,6 +1412,7 @@ describe("Liteswap Testing", function () {
       console.log(" -Token A balance:", initialBalance.toString());
 
       // Place limit order and wait for the transaction
+      
       const tx = await liteswap.connect(user1).placeLimitOrder(
         pairId,
         await tokenA.getAddress(),
@@ -1457,8 +1459,8 @@ describe("Liteswap Testing", function () {
       
       console.log("\nTest passed: Limit order placed and cancelled with correct balance changes, can not be filled after cancelled");
     });
-    it("Should increment order IDs correctly for each pair", async function() {
-      const { liteswap, tokenA, tokenB, owner, user1 } = await loadFixture(deployFixture);
+    it("Should increment order IDs correctly for each pair, and orders should be done once filled.", async function() {
+      const { liteswap, tokenA, tokenB, owner, user1,user2, user3 } = await loadFixture(deployFixture);
       
       const initialLiquidity = hre.ethers.parseEther("10000");
       const limitOrderAmount = hre.ethers.parseEther("100");
@@ -1552,8 +1554,88 @@ describe("Liteswap Testing", function () {
       expect(orderId3).to.equal(2);
 
       console.log("\nTest passed: Order IDs increment correctly");
+      // Transfer tokens to user2 for filling orders
+      await tokenB.transfer(user2.address, desiredOutput * 3n);
+      await tokenB.connect(user2).approve(await liteswap.getAddress(), desiredOutput * 3n);
+
+      console.log("\nStep 4: Filling first order");
+      // Get balances before fill
+      const user1BalanceBeforeB = await tokenB.balanceOf(user1.address); // Check tokenB balance for user1
+      const user2BalanceBeforeA = await tokenA.balanceOf(user2.address); // Check tokenA balance for user2
+
+      await liteswap.connect(user2).fillLimitOrder(pairId, orderId1, desiredOutput);
+      
+      // Verify balances after fill
+      const user1BalanceAfterB = await tokenB.balanceOf(user1.address);
+      const user2BalanceAfterA = await tokenA.balanceOf(user2.address);
+      
+      // Verify user1 (maker) received the desired output amount of tokenB
+      expect(user1BalanceAfterB - user1BalanceBeforeB).to.equal(desiredOutput);
+      // Verify user2 (filler) received the offered amount of tokenA
+      expect(user2BalanceAfterA - user2BalanceBeforeA).to.equal(limitOrderAmount);
+      console.log(" -Filled order", orderId1);
+      console.log(" -Maker received:", limitOrderAmount.toString(), "token A");
+      console.log(" -Filler paid:", desiredOutput.toString(), "token B");
+
+      // Try to fill first order again
+      await expect(
+        liteswap.connect(user2).fillLimitOrder(pairId, orderId1, desiredOutput)
+      ).to.be.revertedWithCustomError(liteswap, "OrderNotActive");
+      console.log(" -Confirmed: Cannot fill already filled order", orderId1);
+
+      console.log("\nStep 5: Filling second order");
+      // Get balances before fill
+      const user1BalanceBeforeB2 = await tokenB.balanceOf(user1.address); // Check tokenB balance for user1
+      const user2BalanceBeforeA2 = await tokenA.balanceOf(user2.address); // Check tokenA balance for user2
+
+      await liteswap.connect(user2).fillLimitOrder(pairId, orderId2, desiredOutput);
+      
+      // Verify balances after fill
+      const user1BalanceAfterB2 = await tokenB.balanceOf(user1.address);
+      const user2BalanceAfterA2 = await tokenA.balanceOf(user2.address);
+      
+      // Verify user1 (maker) received the desired output amount of tokenB
+      expect(user1BalanceAfterB2 - user1BalanceBeforeB2).to.equal(desiredOutput);
+      // Verify user2 (filler) received the offered amount of tokenA
+      expect(user2BalanceAfterA2 - user2BalanceBeforeA2).to.equal(limitOrderAmount);
+      console.log(" -Filled order", orderId2);
+      console.log(" -Maker received:", limitOrderAmount.toString(), "token A");
+      console.log(" -Filler paid:", desiredOutput.toString(), "token B");
+
+      // Try to fill second order again
+      await expect(
+        liteswap.connect(user2).fillLimitOrder(pairId, orderId2, desiredOutput)
+      ).to.be.revertedWithCustomError(liteswap, "OrderNotActive");
+      console.log(" -Confirmed: Cannot fill already filled order", orderId2);
+
+      console.log("\nStep 6: Filling third order");
+      // Get balances before fill
+      const user1BalanceBeforeB3 = await tokenB.balanceOf(user1.address); // Check tokenB balance for user1
+      const user2BalanceBeforeA3 = await tokenA.balanceOf(user2.address); // Check tokenA balance for user2
+
+      await liteswap.connect(user2).fillLimitOrder(pairId, orderId3, desiredOutput);
+      
+      // Verify balances after fill
+      const user1BalanceAfterB3 = await tokenB.balanceOf(user1.address);
+      const user2BalanceAfterA3 = await tokenA.balanceOf(user2.address);
+      
+      // Verify user1 (maker) received the desired output amount of tokenB
+      expect(user1BalanceAfterB3 - user1BalanceBeforeB3).to.equal(desiredOutput);
+      // Verify user2 (filler) received the offered amount of tokenA
+      expect(user2BalanceAfterA3 - user2BalanceBeforeA3).to.equal(limitOrderAmount);
+      console.log(" -Filled order", orderId3);
+      console.log(" -Maker received:", limitOrderAmount.toString(), "token A");
+      console.log(" -Filler paid:", desiredOutput.toString(), "token B");
+
+      // Try to fill third order again
+      await expect(
+        liteswap.connect(user2).fillLimitOrder(pairId, orderId3, desiredOutput)
+      ).to.be.revertedWithCustomError(liteswap, "OrderNotActive");
+      console.log(" -Confirmed: Cannot fill already filled order", orderId3);
+
+      console.log("\nTest passed: Orders can be fully filled once with correct amounts and not refilled");
     });
-    it("Should allow partially filled limit orders to be cancelled", async function() {
+    it("Should allow partially filled limit orders to cancel remaining offer and disallow over-filling offer.", async function() {
       const { liteswap, tokenA, tokenB, owner, user1, user2 } = await loadFixture(deployFixture);
       const amount = hre.ethers.parseEther("1000");
 
@@ -1610,12 +1692,27 @@ describe("Liteswap Testing", function () {
 
       console.log("\nStep 2: Order partially filled");
       console.log(" -Fill amount:", fillAmount.toString());
+      // Try to fill more than remaining amount
+      const remainingAmount = (limitOrderAmount * 2n) / 3n; // 2/3 of original order remains
+      const tooMuchFill = remainingAmount + hre.ethers.parseEther("1"); // Try to fill more than remains
+      
+      await tokenB.connect(user2).approve(liteswap, tooMuchFill);
+      
+      await expect(liteswap.connect(user2).fillLimitOrder(
+        pairId,
+        orderId,
+        tooMuchFill
+      )).to.be.revertedWithCustomError(liteswap, "InvalidFillAmount");
 
+      console.log("\nStep 2.5: Attempted to fill more than remaining");
+      console.log(" -Remaining amount:", remainingAmount.toString());
+      console.log(" -Attempted fill:", tooMuchFill.toString());
+      console.log(" -Result: Reverted with InvalidFillAmount");
       // Cancel remaining order
       const balanceBefore = await tokenA.balanceOf(user1.address);
       await liteswap.connect(user1).cancelLimitOrder(pairId, orderId);
       const balanceAfter = await tokenA.balanceOf(user1.address);
-
+      
       console.log("\nStep 3: Remaining order cancelled");
       console.log(" -Returned amount:", (balanceAfter - balanceBefore).toString());
 
@@ -1625,6 +1722,279 @@ describe("Liteswap Testing", function () {
 
       console.log("\nTest passed: Correct amount returned after partial fill and cancel");
     });
+    it("Should handle multiple limit orders from different users for the same pair", async function() {
+      const { liteswap, tokenA, tokenB, owner, user1, user2, user3 } = await loadFixture(deployFixture);
+      
+      const initialLiquidity = hre.ethers.parseEther("10000");
+      const orderAmount = hre.ethers.parseEther("100");
+      const desiredOutput = hre.ethers.parseEther("190");
+
+      // Initialize pair
+      await tokenA.approve(await liteswap.getAddress(), initialLiquidity);
+      await tokenB.approve(await liteswap.getAddress(), initialLiquidity);
+      await liteswap.initializePair(
+        await tokenA.getAddress(),
+        await tokenB.getAddress(),
+        initialLiquidity,
+        initialLiquidity
+      );
+
+      const pairId = await liteswap.tokenPairId(
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenA.getAddress() : await tokenB.getAddress(),
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenB.getAddress() : await tokenA.getAddress()
+      );
+
+      console.log("\n+ Testing multiple limit orders from different users");
+      console.log(" -Initial liquidity:", initialLiquidity.toString());
+      console.log(" -Order amount:", orderAmount.toString());
+      console.log(" -Desired output:", desiredOutput.toString());
+
+      // Setup users with tokens and approvals
+      await tokenA.transfer(user1.address, orderAmount);
+      await tokenA.transfer(user2.address, orderAmount);
+      await tokenA.connect(user1).approve(await liteswap.getAddress(), orderAmount);
+      await tokenA.connect(user2).approve(await liteswap.getAddress(), orderAmount);
+
+      // Place orders from different users
+      const tx1 = await liteswap.connect(user1).placeLimitOrder(
+        pairId,
+        await tokenA.getAddress(),
+        orderAmount,
+        desiredOutput
+      );
+      const receipt1 = await tx1.wait();
+      const event1 = receipt1?.logs.find(
+        log => log.topics[0] === liteswap.interface.getEvent("LimitOrderPlaced").topicHash
+      );
+      const orderId1 = liteswap.interface.decodeEventLog(
+        "LimitOrderPlaced",
+        event1?.data || "",
+        event1?.topics || []
+      ).orderId;
+
+      console.log("\nStep 1: First order placed");
+      console.log(" -Order ID:", orderId1.toString());
+
+      const tx2 = await liteswap.connect(user2).placeLimitOrder(
+        pairId,
+        await tokenA.getAddress(),
+        orderAmount,
+        desiredOutput
+      );
+      const receipt2 = await tx2.wait();
+      const event2 = receipt2?.logs.find(
+        log => log.topics[0] === liteswap.interface.getEvent("LimitOrderPlaced").topicHash
+      );
+      const orderId2 = liteswap.interface.decodeEventLog(
+        "LimitOrderPlaced",
+        event2?.data || "",
+        event2?.topics || []
+      ).orderId;
+
+      console.log("\nStep 2: Second order placed");
+      console.log(" -Order ID:", orderId2.toString());
+
+      expect(orderId2).to.equal(orderId1 + 1n);
+
+      // Setup user3 as filler
+      await tokenB.transfer(user3.address, desiredOutput * 2n);
+      await tokenB.connect(user3).approve(await liteswap.getAddress(), desiredOutput * 2n);
+
+      // Fill both orders
+      await liteswap.connect(user3).fillLimitOrder(pairId, orderId1, desiredOutput);
+      await liteswap.connect(user3).fillLimitOrder(pairId, orderId2, desiredOutput);
+
+      console.log("\nStep 3: Both orders filled");
+      console.log(" -Fill amount per order:", desiredOutput.toString());
+
+      // Verify orders are no longer active
+      const order1 = await liteswap.limitOrders(pairId, orderId1);
+      const order2 = await liteswap.limitOrders(pairId, orderId2);
+      expect(order1.active).to.be.false;
+      expect(order2.active).to.be.false;
+
+      console.log("\nTest passed: Multiple orders handled correctly with sequential IDs and successful fills");
+    });
+
+    it("Should handle partial fills from multiple users", async function() {
+      const { liteswap, tokenA, tokenB, owner, user1, user2, user3 } = await loadFixture(deployFixture);
+      
+      const initialLiquidity = hre.ethers.parseEther("10000");
+      const orderAmount = hre.ethers.parseEther("300");
+      const desiredOutput = hre.ethers.parseEther("570"); // 1.9x ratio
+
+      console.log("\n+ Testing partial fills from multiple users");
+      console.log(" -Initial liquidity:", initialLiquidity.toString());
+      console.log(" -Order amount:", orderAmount.toString());
+      console.log(" -Desired output:", desiredOutput.toString());
+
+      // Initialize pair
+      await tokenA.approve(await liteswap.getAddress(), initialLiquidity);
+      await tokenB.approve(await liteswap.getAddress(), initialLiquidity);
+      await liteswap.initializePair(
+        await tokenA.getAddress(),
+        await tokenB.getAddress(),
+        initialLiquidity,
+        initialLiquidity
+      );
+
+      const pairId = await liteswap.tokenPairId(
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenA.getAddress() : await tokenB.getAddress(),
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenB.getAddress() : await tokenA.getAddress()
+      );
+
+      await tokenA.transfer(user1.address, orderAmount);
+      await tokenA.connect(user1).approve(await liteswap.getAddress(), orderAmount);
+
+      const tx = await liteswap.connect(user1).placeLimitOrder(
+        pairId,
+        await tokenA.getAddress(),
+        orderAmount,
+        desiredOutput
+      );
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        log => log.topics[0] === liteswap.interface.getEvent("LimitOrderPlaced").topicHash
+      );
+      const orderId = liteswap.interface.decodeEventLog(
+        "LimitOrderPlaced",
+        event?.data || "",
+        event?.topics || []
+      ).orderId;
+
+      console.log("\nStep 1: Order placed");
+      console.log(" -Order ID:", orderId.toString());
+
+      // Setup fillers
+      const fillAmount = desiredOutput / 3n;
+      await tokenB.transfer(user2.address, fillAmount);
+      await tokenB.transfer(user3.address, fillAmount);
+      await tokenB.connect(user2).approve(await liteswap.getAddress(), fillAmount);
+      await tokenB.connect(user3).approve(await liteswap.getAddress(), fillAmount);
+
+      // Fill order partially from different users
+      await liteswap.connect(user2).fillLimitOrder(pairId, orderId, fillAmount);
+      console.log("\nStep 2: First partial fill");
+      console.log(" -User2 filled:", fillAmount.toString());
+
+      await liteswap.connect(user3).fillLimitOrder(pairId, orderId, fillAmount);
+      console.log("\nStep 3: Second partial fill");
+      console.log(" -User3 filled:", fillAmount.toString());
+
+      // Verify order is still active but amounts are reduced
+      const order = await liteswap.limitOrders(pairId, orderId);
+      expect(order.active).to.be.true;
+      expect(order.offerAmount).to.equal(orderAmount / 3n);
+      expect(order.desiredAmount).to.equal(desiredOutput / 3n);
+
+      console.log("\nStep 4: Order verification");
+      console.log(" -Order still active:", order.active);
+      console.log(" -Remaining offer:", (orderAmount / 3n).toString());
+      console.log(" -Remaining desired:", (desiredOutput / 3n).toString());
+
+      console.log("\nTest passed: Multiple users can partially fill orders with correct remaining amounts");
+    });
+    it("Should emit descriptive events when orders are placed, filled, and cancelled.", async function(){
+      const { liteswap, tokenA, tokenB, owner, user1, user2 } = await loadFixture(deployFixture);
+      
+      const initialLiquidity = hre.ethers.parseEther("10000");
+      const limitOrderAmount = hre.ethers.parseEther("100");
+      const desiredOutput = hre.ethers.parseEther("190");
+
+      console.log("\n+ Testing limit order events");
+      console.log(" -Initial liquidity:", initialLiquidity.toString());
+      console.log(" -Limit order amount:", limitOrderAmount.toString());
+      console.log(" -Desired output:", desiredOutput.toString());
+
+      // Initialize pair
+      await tokenA.approve(await liteswap.getAddress(), initialLiquidity);
+      await tokenB.approve(await liteswap.getAddress(), initialLiquidity);
+      await liteswap.initializePair(
+        await tokenA.getAddress(),
+        await tokenB.getAddress(),
+        initialLiquidity,
+        initialLiquidity
+      );
+
+      const pairId = await liteswap.tokenPairId(
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenA.getAddress() : await tokenB.getAddress(),
+        await tokenA.getAddress() < await tokenB.getAddress() ? await tokenB.getAddress() : await tokenA.getAddress()
+      );
+
+      // Transfer tokens to users and approve
+      await tokenA.transfer(user1.address, limitOrderAmount);
+      await tokenA.connect(user1).approve(await liteswap.getAddress(), limitOrderAmount);
+      await tokenB.transfer(user2.address, desiredOutput);
+      await tokenB.connect(user2).approve(await liteswap.getAddress(), desiredOutput);
+
+      console.log("\nStep 1: Testing LimitOrderPlaced event");
+      // Place order and verify event
+      await expect(liteswap.connect(user1).placeLimitOrder(
+        pairId,
+        await tokenA.getAddress(),
+        limitOrderAmount,
+        desiredOutput
+      )).to.emit(liteswap, "LimitOrderPlaced")
+        .withArgs(
+          pairId,
+          0, // First order ID should be 0
+          user1.address,
+          await tokenA.getAddress(),
+          await tokenB.getAddress(),
+          limitOrderAmount,
+          desiredOutput
+        );
+
+      console.log("\nStep 2: Testing LimitOrderFilled event");
+      // Fill order and verify event
+      await expect(liteswap.connect(user2).fillLimitOrder(
+        pairId,
+        0,
+        desiredOutput/2n
+      )).to.emit(liteswap, "LimitOrderFilled")
+        .withArgs(
+          pairId,
+          0,
+          user2.address,
+          limitOrderAmount/2n
+        );
+      await tokenB.connect(user1).approve(await liteswap.getAddress(), desiredOutput);
+      console.log("\nStep 2.5: Confirm user can fill their own limit order.");
+      await expect(liteswap.connect(user1).fillLimitOrder(
+        pairId,
+        0,
+        desiredOutput/2n
+      )).to.emit(liteswap, "LimitOrderFilled")
+        .withArgs(
+          pairId,
+          0,
+          user1.address,
+          limitOrderAmount/2n
+        );
+      // Place another order for testing cancellation
+      await tokenA.transfer(user1.address, limitOrderAmount);
+      await tokenA.connect(user1).approve(await liteswap.getAddress(), limitOrderAmount);
+      await liteswap.connect(user1).placeLimitOrder(
+        pairId,
+        await tokenA.getAddress(),
+        limitOrderAmount,
+        desiredOutput
+      );
+
+      console.log("\nStep 3: Testing LimitOrderCancelled event");
+      // Cancel order and verify event
+      await expect(liteswap.connect(user1).cancelLimitOrder(
+        pairId,
+        1 // Second order ID should be 1
+      )).to.emit(liteswap, "LimitOrderCancelled")
+        .withArgs(
+          pairId,
+          1
+        );
+
+      console.log("\nTest passed: All limit order events emit correctly with expected arguments");
+    });
+
   });
     
 });

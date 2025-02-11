@@ -1,13 +1,12 @@
 #Liteswap
 # Liteswap
-A lightweight decentralized exchange (DEX) smart contract that enables trading between ERC20 token pairs with automated market making (AMM).
+A lightweight decentralized exchange (DEX) smart contract that enables trading between ERC20 token pairs with automated market making (AMM) complemented by simple limit orders.  
 
 ## Features
 
 - Create trading pairs between any two ERC20 tokens
 - Add/remove liquidity to earn fees from trades 
 - Swap tokens with 0.3% fee that goes to liquidity providers
-- Protection against common attack vectors like reentrancy
 - Fee-free limit order placement, filling, and cancellation.
 
 ## Architecture
@@ -15,10 +14,9 @@ A lightweight decentralized exchange (DEX) smart contract that enables trading b
 The core contract `Liteswap.sol` implements:
 
 - Pair creation and management
-- Liquidity provision tracking
+- Share-based liquidity provision accounting
 - Constant product AMM formula (x * y = k)
-- Share-based liquidity accounting
-- Safe token transfers and math operations
+- Simple offer based limit order system
 
 ## Installation
 

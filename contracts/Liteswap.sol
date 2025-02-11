@@ -37,7 +37,7 @@ contract Liteswap is ReentrancyGuard {
     mapping(uint256 pairId => mapping(uint256 orderId => LimitOrder)) public limitOrders;
     mapping(uint256 pairId => uint256) private _orderIdCounter;
     uint256 public _pairIdCount; // Counter for generating unique pair IDs
-    uint256 private constant MINIMUM_SHARES = 1000; // prevent division by zero on first liquidity provision
+    uint256 private constant MINIMUM_SHARES = 1000; // prevent division by zero on first liquidity deposit
     
     event PairInitialized(
         uint256 indexed pairId, 
@@ -316,6 +316,17 @@ contract Liteswap is ReentrancyGuard {
 
     /**
      * @notice Places a limit order to swap tokens at a specific rate
+     * @dev This function allows users to place limit orders for token swaps at a specified rate.
+     * The order will only be valid if the desired rate is worse than what could be achieved with
+     * a direct swap through the AMM (to prevent arbitrage). The function:
+     * 1. Validates the pair exists and tokens are valid
+     * 2. Transfers offered tokens from user to contract, handling any transfer fees
+     * 3. Checks that the limit price is valid compared to AMM price
+     * 4. Creates and stores the limit order with a unique ID
+     * 5. Emits LimitOrderPlaced event
+     * The order can later be filled by other users calling fillLimitOrder() or cancelled by
+     * the maker calling cancelLimitOrder()
+     * 
      * @param pairId The pair ID to place the order for
      * @param offerToken The token address being offered
      * @param offerAmount The amount of tokens being offered
@@ -342,20 +353,19 @@ contract Liteswap is ReentrancyGuard {
             // Calculate actual received amount after transfer
             uint256 actualOfferAmount = IERC20(offerToken).balanceOf(address(this)) - initialBalance;
             if (actualOfferAmount == 0) revert InvalidAmount();
-            // Check if price ratio is worse than current reserves
+            // Check if limit order would get more tokens than a normal swap
             bool isOfferTokenA = offerToken == pair.tokenA;
-            uint256 reserveOffer = isOfferTokenA ? pair.reserveA : pair.reserveB;
-            uint256 reserveDesired = isOfferTokenA ? pair.reserveB : pair.reserveA;
+            uint256 reserveIn = isOfferTokenA ? pair.reserveA : pair.reserveB;
+            uint256 reserveOut = isOfferTokenA ? pair.reserveB : pair.reserveA;
 
-            // Calculate price ratios using fixed point math (multiply by 1e18 for precision)
-            uint256 orderRatio = (desiredAmount * 1e18) / actualOfferAmount;
-            uint256 reserveRatio = (reserveDesired * 1e18) / reserveOffer;
+            // Calculate what a normal swap would give using the AMM formula
+            uint256 swapOutput = (reserveOut * ((actualOfferAmount * 997) / 1000)) / 
+                                (reserveIn + ((actualOfferAmount * 997) / 1000));
 
-            // For offering token A: if order ratio < reserve ratio, it's a worse deal
-            // For offering token B: if order ratio > reserve ratio, it's a worse deal
-            if (isOfferTokenA ? orderRatio < reserveRatio : orderRatio > reserveRatio) {
+            // If limit order asks for more than a swap would give, it's a bad ratio
+            if ((desiredAmount * 1e18) / actualOfferAmount < (swapOutput * 1e18) / actualOfferAmount) {
                 revert BadRatio();
-            }   
+            }
 
             // Create order
             orderId = _orderIdCounter[pairId]++;
@@ -381,11 +391,25 @@ contract Liteswap is ReentrancyGuard {
     }
 
     /**
-     * @notice Fills an existing limit order
+     * @notice Fills an existing limit order by providing the desired token amount
+     * @dev This function handles the filling of limit orders with the following steps:
+     * 1. Transfers the desired token amount from the filler to the contract
+     * 2. Calculates the proportional offer amount based on the actual received amount
+     * 3. Transfers the desired tokens to the order maker
+     * 4. Transfers the offered tokens to the filler
+     * 5. Updates or deactivates the order based on remaining amounts
+     * 
+     * Handles fee-on-transfer tokens by using actual received amounts.
+     * Reverts if:
+     * - Order is not active
+     * - Transfer fails
+     * - Fill amount is invalid (0 or greater than remaining desired amount)
+     * - Calculated offer amount would be 0
+     * 
      * @param pairId The pair ID of the order
      * @param orderId The ID of the order to fill
-     * @param amountDesiredToFill The amount of the order to fill
-     * @return filled The amount that was filled
+     * @param amountDesiredToFill The amount of desired tokens to fill the order with
+     * @return filled The amount of offer tokens that was filled and sent to filler
      */
     function fillLimitOrder(uint256 pairId, uint256 orderId, uint256 amountDesiredToFill) 
         external nonReentrant 
@@ -403,8 +427,6 @@ contract Liteswap is ReentrancyGuard {
             if (actualReceived == 0) revert InvalidFillAmount();
             if (actualReceived == 0 || actualReceived > order.desiredAmount) revert InvalidFillAmount();
 
-            
-
             // Calculate proportional offer amount based on actual received amount
             uint256 offerAmount = (actualReceived * order.offerAmount) / order.desiredAmount;
             if (offerAmount == 0) revert InvalidFillAmount();
@@ -415,7 +437,6 @@ contract Liteswap is ReentrancyGuard {
             // Transfer offered tokens to filler
             IERC20(order.offerToken).safeTransfer(msg.sender, offerAmount);
 
-            // Update order
             order.offerAmount -= offerAmount;
             order.desiredAmount -= actualReceived;
             if (order.desiredAmount == 0) {
@@ -429,22 +450,28 @@ contract Liteswap is ReentrancyGuard {
 
     /**
      * @notice Cancels an existing limit order
+     * @dev This function allows the maker of a limit order to cancel it and retrieve their remaining offered tokens.
+     * The order must be active and can only be cancelled by the original maker. After cancellation:
+     * - The remaining offer tokens are returned to the maker
+     * - The order is marked as inactive
+     * - Offer and desired amounts are set to 0
+     * - A LimitOrderCancelled event is emitted
+     * The function is protected against reentrancy attacks.
+     * 
      * @param pairId The pair ID of the order
      * @param orderId The ID of the order to cancel
      */
-    function cancelLimitOrder(uint256 pairId, uint256 orderId) external nonReentrant {
-        LimitOrder storage order = limitOrders[pairId][orderId];
-        if (!order.active) revert OrderNotActive();
-        if (order.maker != msg.sender) revert NotOrderMaker();
+    function cancelLimitOrder(uint256 pairId, uint256 orderId) 
+        external nonReentrant {
+            LimitOrder storage order = limitOrders[pairId][orderId];
+            if (!order.active) revert OrderNotActive();
+            if (order.maker != msg.sender) revert NotOrderMaker();
+            IERC20(order.offerToken).safeTransfer(msg.sender, order.offerAmount);
+            order.active = false;
+            order.offerAmount = 0;
+            order.desiredAmount = 0;
 
-        // Return remaining tokens to maker
-        IERC20(order.offerToken).safeTransfer(msg.sender, order.offerAmount);
-        
-        order.active = false;
-        order.offerAmount = 0;
-        order.desiredAmount = 0;
-
-        emit LimitOrderCancelled(pairId, orderId);
+            emit LimitOrderCancelled(pairId, orderId);
     }
     /**
      * @dev Safe transfer function that works with any ERC20 token
