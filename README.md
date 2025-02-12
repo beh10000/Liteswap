@@ -1,7 +1,7 @@
 
 
 # Liteswap
-![Liteswap](.assets/Liteswap.png)
+![Liteswap](/assets/Liteswap.png)
 
 A lightweight decentralized exchange (DEX) smart contract that enables trading between ERC20 token pairs with automated market making (AMM) complemented by simple limit orders.  
 
