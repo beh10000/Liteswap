@@ -136,7 +136,7 @@ flowchart TD
     
     classDef action fill:#e6e6e6,stroke:#000000,stroke-width:2px,color:#000000
     class B,C,F,G,H,I,J,K,L,M,N,O action
-    ````
+````
 
 ## Stack
 - Solidity smart contract
