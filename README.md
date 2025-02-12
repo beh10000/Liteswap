@@ -39,6 +39,7 @@ The test suite provides comprehensive coverage of core functionality and edge ca
 
 ### Coverage Metrics
 Based on hardhat coverage report:
+
 |----------------|----------|----------|----------|----------|----------------|
 |File            |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
 |----------------|----------|----------|----------|----------|----------------|
