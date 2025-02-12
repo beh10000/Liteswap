@@ -100,16 +100,27 @@ graph TD
 ## User Journey
 ````mermaid
 flowchart TD
+    EOA([End User Wallet]) -->|Can interact| ENTRY[All Contract Functions]
+    EXT([External Contract]) -->|Can integrate| ENTRY
+    
+    ENTRY --> START
+    
     START([Start]) --> A{Trading Pair Exists?}
     
-    A -->|No| B[Initialize New Pair]
-    B --> C[Supply Initial Liquidity]
+    A -->|No| B{Validate Pair Creation}
+    B -->|Invalid| R([REVERT:
+    - PairAlreadyExists
+    - InvalidTokenAddress
+    - InvalidAmount
+    - InsufficientLiquidity
+    - TransferFailed])
+    B -->|Valid| C[Supply Initial Liquidity]
     C --> D[Pair Created]
+    D --> E
     
-    A -->|Yes| D
+    A -->|Yes| E{Choose Action}
     
-    D --> E{Choose Action}
-    
+    %% AMM Actions
     E -->|Swap| F[Swap Tokens]
     F --> G[Approve Token Transfer]
     G --> H[Execute Swap]
@@ -126,16 +137,36 @@ flowchart TD
     N --> O[Receive Both Tokens]
     O --> E
     
+    %% Limit Order Actions
+    E -->|Place Limit Order| P[Create Limit Order]
+    P --> Q[Approve Offer Token]
+    Q --> S[Place Order]
+    S --> E
+    
+    E -->|Fill Limit Order| T[Fill Order]
+    T --> U[Approve Desired Token]
+    U --> V[Execute Fill]
+    V --> E
+    
+    E -->|Cancel Limit Order| W[Cancel Own Order]
+    W --> X[Receive Back Tokens]
+    X --> E
+    
     E --> END([End])
 
     style START fill:#d4edda,stroke:#000000,stroke-width:2px,color:#000000
     style END fill:#f8d7da,stroke:#000000,stroke-width:2px,color:#000000
+    style R fill:#ff9999,stroke:#000000,stroke-width:2px,color:#000000
     style A fill:#cce5ff,stroke:#000000,stroke-width:2px,color:#000000
+    style B fill:#cce5ff,stroke:#000000,stroke-width:2px,color:#000000
     style E fill:#cce5ff,stroke:#000000,stroke-width:2px,color:#000000
     style D fill:#d4d7f5,stroke:#000000,stroke-width:2px,color:#000000
+    style EOA fill:#b8e2fc,stroke:#000000,stroke-width:2px,color:#000000
+    style EXT fill:#e9d2f4,stroke:#000000,stroke-width:2px,color:#000000
+    style ENTRY fill:#e6e6e6,stroke:#000000,stroke-width:2px,color:#000000,stroke-dasharray: 5 5
     
     classDef action fill:#e6e6e6,stroke:#000000,stroke-width:2px,color:#000000
-    class B,C,F,G,H,I,J,K,L,M,N,O action
+    class C,F,G,H,I,J,K,L,M,N,O,P,Q,S,T,U,V,W,X action
 ````
 
 ## Stack
