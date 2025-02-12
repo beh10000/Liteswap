@@ -3,13 +3,13 @@
 # Liteswap
 ![Liteswap](/assets/Liteswap.png)
 
-A lightweight decentralized exchange smart contract and dapp that enables trading between ERC20 token pairs with automated market making complemented by simple limit orders.  
+A simple decentralized exchange protocol that pairs automated market making with limit orders for enhanced trader experience and liquidity provider risk management.
 
 ## Features
 
 - Create trading pairs between any two ERC20 tokens
-- Add/remove liquidity 
-- Swap tokens with 0.3% fee that goes to liquidity providers
+- Add/remove liquidity while collecting fees
+- Swap tokens
 - Fee-free limit order placement, filling, and cancellation
 
 
