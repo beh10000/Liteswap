@@ -3,7 +3,7 @@
 # Liteswap
 ![Liteswap](/assets/Liteswap.png)
 
-A lightweight decentralized exchange (DEX) smart contract that enables trading between ERC20 token pairs with automated market making (AMM) complemented by simple limit orders.  
+A lightweight decentralized exchange smart contract and dapp that enables trading between ERC20 token pairs with automated market making complemented by simple limit orders.  
 
 ## Features
 
@@ -30,6 +30,74 @@ The core contract `Liteswap.sol` implements:
 - Simple offer based limit order system
 
 The supplementary contract `TestERC20.sol` is used for generating test tokens on sepolia to interact with the contract.
+````mermaid
+graph TD
+    subgraph Liteswap [Liteswap Contract Instance]
+        subgraph Storage [Contract Storage]
+            direction LR
+            subgraph Mappings [State Mappings]
+                PM[pairs]
+                TPM[tokenPairId]
+                LPM[liquidityProviderPositions]
+                LOM[limitOrders]
+            end
+            
+            subgraph Counters [State Counters]
+                PC[_pairIdCount]
+                OC[_orderIdCounter]
+            end
+        end
+
+        subgraph Functions [Contract Functions]
+            direction TB
+            subgraph AMM [AMM Operations]
+                IP[initializePair]
+                AL[addLiquidity]
+                RL[removeLiquidity]
+                SW[swap]
+            end
+
+            subgraph LO [Limit Orders]
+                PLO[placeLimitOrder]
+                FLO[fillLimitOrder]
+                CLO[cancelLimitOrder]
+            end
+
+            subgraph Internal [Internal Functions]
+                TT[_transferTokens]
+                UR[_updateReserves]
+                MS[_mintShares]
+                BS[_burnShares]
+                SQ[_sqrt]
+            end
+
+            subgraph Views [View Functions]
+                GPI[getPairId]
+                GPIF[getPairInfo]
+                GSB[getUserShareBps]
+            end
+        end
+
+        Functions --> Storage
+        Storage --> Functions
+    end
+
+    EXT[External Token Contracts] -.-> Liteswap
+    USR[Users] -.-> Liteswap
+
+    style Liteswap fill:#f5f5f5,stroke:#333,stroke-width:3px
+    style Storage fill:#e3f2fd,stroke:#333,stroke-width:1px
+    style Functions fill:#f1f8e9,stroke:#333,stroke-width:1px
+    style AMM fill:#e8f5e9,stroke:#333,stroke-width:1px
+    style LO fill:#e8eaf6,stroke:#333,stroke-width:1px
+    style Internal fill:#fff3e0,stroke:#333,stroke-width:1px
+    style Views fill:#fce4ec,stroke:#333,stroke-width:1px
+    style Mappings fill:#e1f5fe,stroke:#333,stroke-width:1px
+    style Counters fill:#f3e5f5,stroke:#333,stroke-width:1px
+    style EXT fill:#fff3e0,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+    style USR fill:#fff3e0,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+````
+
 
 ## Stack
 - Solidity smart contract
@@ -197,3 +265,8 @@ Now click "Run" and you can interact with the app.
 | LimitOrderPlaced | uint256 indexed pairId, uint256 indexed orderId, address indexed maker, address offerToken, address desiredToken, uint256 offerAmount, uint256 desiredAmount | Emitted when limit order is created |
 | LimitOrderCancelled | uint256 indexed pairId, uint256 indexed orderId | Emitted when limit order is cancelled |
 | LimitOrderFilled | uint256 indexed pairId, uint256 indexed orderId, address indexed filler, uint256 fillAmount | Emitted when limit order is filled |
+
+
+
+
+
