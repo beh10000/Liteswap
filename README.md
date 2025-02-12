@@ -97,7 +97,46 @@ graph TD
     style EXT fill:#ffe5cc,stroke:#000000,stroke-width:1px,stroke-dasharray: 5 5,color:#000000
     style USR fill:#ffe5cc,stroke:#000000,stroke-width:1px,stroke-dasharray: 5 5,color:#000000
 ````
+## User Journey
+````mermaid
+flowchart TD
+    START([Start]) --> A{Trading Pair Exists?}
+    
+    A -->|No| B[Initialize New Pair]
+    B --> C[Supply Initial Liquidity]
+    C --> D[Pair Created]
+    
+    A -->|Yes| D
+    
+    D --> E{Choose Action}
+    
+    E -->|Swap| F[Swap Tokens]
+    F --> G[Approve Token Transfer]
+    G --> H[Execute Swap]
+    H --> E
+    
+    E -->|Add Liquidity| I[Add More Liquidity]
+    I --> J[Approve Both Tokens]
+    J --> K[Provide Liquidity]
+    K --> L[Receive LP Shares]
+    L --> E
+    
+    E -->|Remove Liquidity| M[Remove Liquidity]
+    M --> N[Burn LP Shares]
+    N --> O[Receive Both Tokens]
+    O --> E
+    
+    E --> END([End])
 
+    style START fill:#d4edda,stroke:#000000,stroke-width:2px,color:#000000
+    style END fill:#f8d7da,stroke:#000000,stroke-width:2px,color:#000000
+    style A fill:#cce5ff,stroke:#000000,stroke-width:2px,color:#000000
+    style E fill:#cce5ff,stroke:#000000,stroke-width:2px,color:#000000
+    style D fill:#d4d7f5,stroke:#000000,stroke-width:2px,color:#000000
+    
+    classDef action fill:#e6e6e6,stroke:#000000,stroke-width:2px,color:#000000
+    class B,C,F,G,H,I,J,K,L,M,N,O action
+    ````
 
 ## Stack
 - Solidity smart contract
@@ -176,7 +215,7 @@ npx hardhat compile
 ```bash
 npx hardhat test
 ```
-3. Create a `.env` file with your configuration:
+3. Prepare for Sepolia testnet deployment by creating a `.env` file with your configuration:
 
 ```bash
 SEPOLIA_PRIVATE_KEY=your_testnet_private_key
@@ -211,7 +250,7 @@ https://anvil.works/build#clone:VWNRQRSGPY77UYZQ=VT33BJ3AXXGVJTNXHSCYSM4A
 
 This will take you to Anvil, a python web framework and browser IDE. 
 
-Once you open the IDE, find the "contracts" datatable. Copy the Liteswap address and Factory address from the above deployment script logs and paste them into the contracts datatable in the corresponding address fields.
+Once you open the IDE, find the "contracts" datatable. Copy the Liteswap address and Factory address from the above deployment script logs and paste them into the contracts datatable in the corresponding address fields. The dapp reads the address and abi from this datatable to connect to the contract, so make sure the datatable access settings are set to "Client Read Only, Server No access". 
 
 If you are on the localhost network, go to main.js file and find and update these variables.
 ```javascript
@@ -226,7 +265,7 @@ export const networks = [sepolia]
 ```
 Now click "Run" and you can interact with the app. 
 
-## Contract Interface
+## Contract Reference
 
 ### Public/External Functions
 
@@ -265,6 +304,8 @@ Now click "Run" and you can interact with the app.
 | LimitOrderPlaced | uint256 indexed pairId, uint256 indexed orderId, address indexed maker, address offerToken, address desiredToken, uint256 offerAmount, uint256 desiredAmount | Emitted when limit order is created |
 | LimitOrderCancelled | uint256 indexed pairId, uint256 indexed orderId | Emitted when limit order is cancelled |
 | LimitOrderFilled | uint256 indexed pairId, uint256 indexed orderId, address indexed filler, uint256 fillAmount | Emitted when limit order is filled |
+
+
 
 
 
