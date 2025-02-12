@@ -344,6 +344,8 @@ Before taking to production, a few things may be considered:
 - further gas optimization techniques
 - implementing a routing system, either on-chain or offchain to close spreads between limit orders and liquidity pool price
 - a test sequence using Foundry fuzzing utilities could enhance our confidence in edge case behavior and formal third party audits could enhance user confidence
+- Subgraph event indexing API for enhanced performance on user facing front end
+- integration of uniswap V3 style concentrated pools, perhaps replacing constant product pool since that can be replicated by full range V3 position
 
 
 
