@@ -39,15 +39,15 @@ The test suite provides comprehensive coverage of core functionality and edge ca
 
 ### Coverage Metrics
 Based on hardhat coverage report:
-----------------|----------|----------|----------|----------|----------------|
-File            |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
-----------------|----------|----------|----------|----------|----------------|
- contracts/     |    86.03 |    70.71 |    69.57 |    86.78 |                |
-  Liteswap.sol  |    93.55 |    71.74 |     87.5 |    95.54 |... 587,588,589 |
-  TestERC20.sol |     8.33 |        0 |    28.57 |     5.88 |... 56,57,58,60 |
-----------------|----------|----------|----------|----------|----------------|
-All files       |    86.03 |    70.71 |    69.57 |    86.78 |                |
-----------------|----------|----------|----------|----------|----------------|
+|----------------|----------|----------|----------|----------|----------------|
+|File            |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+|----------------|----------|----------|----------|----------|----------------|
+| contracts/     |    86.03 |    70.71 |    69.57 |    86.78 |                |
+|  Liteswap.sol  |    93.55 |    71.74 |     87.5 |    95.54 |... 587,588,589 |
+|  TestERC20.sol |     8.33 |        0 |    28.57 |     5.88 |... 56,57,58,60 |
+|----------------|----------|----------|----------|----------|----------------|
+|All files       |    86.03 |    70.71 |    69.57 |    86.78 |                |
+|----------------|----------|----------|----------|----------|----------------|
 
 Note: Additional test cases could improve coverage but core functionality is well tested. The TestERC20 contract had no need to be tested. 
 
@@ -119,6 +119,8 @@ npx hardhat ignition deploy ignition/modules/Liteswap.ts --reset --network local
 npx hardhat ignition deploy ignition/modules/Liteswap.ts --reset --network sepolia --verify && npx hardhat ignition deploy ignition/modules/TestFactory.ts --network sepolia --verify
 ```
 Note: You will need Sepolia Testnet ETH to deploy the contracts and interact with the dapp. Alchemy has a faucet. https://www.alchemy.com/faucets/ethereum-sepolia. 
+If you do not have an etherscan api key, remove the --verify flag from the commands and remove the etherscan section from hardhat.config.ts.
+
 
 
 ## Usage
