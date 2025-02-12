@@ -1,5 +1,8 @@
-#Liteswap
+
+
 # Liteswap
+![Liteswap](.assets/Liteswap.png)
+
 A lightweight decentralized exchange (DEX) smart contract that enables trading between ERC20 token pairs with automated market making (AMM) complemented by simple limit orders.  
 
 ## Features
@@ -8,6 +11,13 @@ A lightweight decentralized exchange (DEX) smart contract that enables trading b
 - Add/remove liquidity 
 - Swap tokens with 0.3% fee that goes to liquidity providers
 - Fee-free limit order placement, filling, and cancellation
+
+
+## Verified Contract Deployment to Sepolia
+
+- https://sepolia.etherscan.io/address/0xd2e85adece075adc02c702f38ba406e806382d8b#code
+
+- simple dapp https://rich-rigid-manufacturer.anvil.app (was using free plan to ensure it could be reproduced by a non-anvil user, which doesnt allow changing the url.)
 
 
 ## Architecture
@@ -20,6 +30,14 @@ The core contract `Liteswap.sol` implements:
 - Simple offer based limit order system
 
 The supplementary contract `TestERC20.sol` is used for generating test tokens on sepolia to interact with the contract.
+
+## Stack
+- Solidity smart contract
+- Hardhat dev node and testing framework
+- Typescript tests
+- Front end written in python and javascript using Anvil
+
+
 ## Test Coverage
 The test suite provides comprehensive coverage of core functionality and edge cases. 
 
@@ -62,10 +80,6 @@ Key test scenarios include:
 - Handling token transfer fees correctly
 
 
-
-
-
-
 ## Installation
 
 1. Clone the repository:
@@ -101,8 +115,6 @@ SEPOLIA_PRIVATE_KEY=your_testnet_private_key
 ETHERSCAN_API_KEY=your_etherscan_api_key
 ALCHEMY_API_KEY=your_alchemy_api_key
 ```
-The address related to your Sepolia private key must have Sepolia testnet ETH for gas.
-then
 
 4a. Deploy Liteswap and the Test Token Factory to localhost network:
 ```bash
