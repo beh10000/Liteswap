@@ -305,6 +305,15 @@ Now click "Run" and you can interact with the app.
 | LimitOrderCancelled | uint256 indexed pairId, uint256 indexed orderId | Emitted when limit order is cancelled |
 | LimitOrderFilled | uint256 indexed pairId, uint256 indexed orderId, address indexed filler, uint256 fillAmount | Emitted when limit order is filled |
 
+## Assumptions and comments
+At this point in time, the market is moving beyond solely relying on simple symmetrical constant product market makers and moving towards concentrated liquidity pools. In the interest of time for this project, implementing a version of Uniswap V3 concentrated positions utilizing tick math would have been a stretch. Since it is critical for liquidity providers to be able to hedge impermanent loss and direct ranges in which they want to primarily be buying or selling, the solution was to introduce the simple limit order system alongside the standard constant product liquidity pool. While working through this, it became clear that this can be beneficial for liquidity providers in a situation where they want to be a seller at some price range, but they dont want to also be a buyer at that range. If they were in a V3 pool they would have to monitor the position and pull it once the price marched through it in one direction before returning in the other direction. If they utilized this implementation of the limit order they could set ranges they expect price to hit, exit at the high range, re-enter at the low range and not bear impermanent loss in between.
+
+
+Before taking to production, a few things may be considered:
+- further gas optimization techniques
+- implementing a routing system, either on-chain or offchain to close spreads between limit orders and liquidity pool price
+- a test sequence using Foundry fuzzing utilities could enhance our confidence in edge case behavior and formal third party audits could enhance user confidence
+
 
 
 
