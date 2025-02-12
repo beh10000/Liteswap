@@ -85,17 +85,17 @@ graph TD
     EXT[External Token Contracts] -.-> Liteswap
     USR[Users] -.-> Liteswap
 
-    style Liteswap fill:#f5f5f5,stroke:#333,stroke-width:3px
-    style Storage fill:#e3f2fd,stroke:#333,stroke-width:1px
-    style Functions fill:#f1f8e9,stroke:#333,stroke-width:1px
-    style AMM fill:#e8f5e9,stroke:#333,stroke-width:1px
-    style LO fill:#e8eaf6,stroke:#333,stroke-width:1px
-    style Internal fill:#fff3e0,stroke:#333,stroke-width:1px
-    style Views fill:#fce4ec,stroke:#333,stroke-width:1px
-    style Mappings fill:#e1f5fe,stroke:#333,stroke-width:1px
-    style Counters fill:#f3e5f5,stroke:#333,stroke-width:1px
-    style EXT fill:#fff3e0,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
-    style USR fill:#fff3e0,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+    style Liteswap fill:#e6e6e6,stroke:#000000,stroke-width:3px,color:#000000
+    style Storage fill:#cce5ff,stroke:#000000,stroke-width:1px,color:#000000
+    style Functions fill:#d4edda,stroke:#000000,stroke-width:1px,color:#000000
+    style AMM fill:#c3e6cb,stroke:#000000,stroke-width:1px,color:#000000
+    style LO fill:#d4d7f5,stroke:#000000,stroke-width:1px,color:#000000
+    style Internal fill:#ffe5cc,stroke:#000000,stroke-width:1px,color:#000000
+    style Views fill:#f8d7da,stroke:#000000,stroke-width:1px,color:#000000
+    style Mappings fill:#b8e2fc,stroke:#000000,stroke-width:1px,color:#000000
+    style Counters fill:#e9d2f4,stroke:#000000,stroke-width:1px,color:#000000
+    style EXT fill:#ffe5cc,stroke:#000000,stroke-width:1px,stroke-dasharray: 5 5,color:#000000
+    style USR fill:#ffe5cc,stroke:#000000,stroke-width:1px,stroke-dasharray: 5 5,color:#000000
 ````
 
 
